@@ -4,6 +4,14 @@ EV RouteWise is a route-aware charging-stop recommender for electric vehicles in
 
 The application is intentionally one deployable service: FastAPI serves the versioned backend, OpenAPI documentation and responsive web interface. This keeps the prototype easy to operate while leaving clean seams for a mobile client, commercial map provider and live charging network.
 
+## Live deployment
+
+- Web app and backend base URL: <https://ev-charging-routes.onrender.com>
+- Swagger API explorer: <https://ev-charging-routes.onrender.com/docs>
+- ReDoc reference: <https://ev-charging-routes.onrender.com/redoc>
+- OpenAPI schema: <https://ev-charging-routes.onrender.com/openapi.json>
+- Health check: <https://ev-charging-routes.onrender.com/api/v1/health>
+
 ## What the planner does
 
 1. Converts place names to coordinates through a Nominatim-compatible geocoder.
@@ -100,4 +108,3 @@ See [docs/architecture.md](docs/architecture.md) and [docs/data-pipeline.md](doc
 ## License
 
 Application code is MIT licensed. OpenStreetMap-derived data remains subject to the Open Database License (ODbL) and attribution requirements.
-
