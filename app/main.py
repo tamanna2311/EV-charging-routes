@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import Body, FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -121,6 +121,12 @@ def create_app(
                 "environment": settings.environment,
             },
         )
+
+    @app.head("/", include_in_schema=False)
+    async def index_head() -> Response:
+        """Support lightweight uptime and link-preview probes."""
+
+        return Response(status_code=200)
 
     @app.get("/api/v1/health", tags=["System"], summary="Service health")
     async def health() -> dict[str, Any]:

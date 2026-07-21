@@ -113,3 +113,4 @@ def test_root_serves_the_route_planner(client: TestClient) -> None:
     response = client.get("/")
     assert response.status_code == 200
     assert "Plan my charging route" in response.text
+    assert client.head("/").status_code == 200
