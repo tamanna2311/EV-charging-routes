@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Plan an EV journey and find reachable charging stations along your route.">
+  <meta name="theme-color" content="#ffffff">
+  <title>EV RouteWise — Charging stops that fit your trip</title>
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="preconnect" href="https://tile.openstreetmap.org">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}?v={{ asset_version }}">
+</head>
+<body>
+  <svg class="svg-sprite" aria-hidden="true">
+    <symbol id="icon-bolt" viewBox="0 0 24 24"><path d="M13 2 4.8 13h6.3L10 22l8.2-11h-6.3L13 2Z"/></symbol>
+    <symbol id="icon-map-pin" viewBox="0 0 24 24"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+    <symbol id="icon-location" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2m0-14-2 2M7 17l-2 2"/></symbol>
+    <symbol id="icon-swap" viewBox="0 0 24 24"><path d="m7 7-3 3 3 3M4 10h14M17 17l3-3-3-3M20 14H6"/></symbol>
+    <symbol id="icon-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="icon-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+    <symbol id="icon-external" viewBox="0 0 24 24"><path d="M14 4h6v6m0-6-9 9"/><path d="M20 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5"/></symbol>
+    <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="icon-route" viewBox="0 0 24 24"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h3a3 3 0 0 0 3-3V9a3 3 0 0 1 3-3"/></symbol>
+    <symbol id="icon-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 2.8 8 7 10 4.2-2 7-5.5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="icon-edit" viewBox="0 0 24 24"><path d="m14 5 5 5M4 20l3.5-.7L19 7.8a1.4 1.4 0 0 0-2.8-2.8L4.7 16.5 4 20Z"/></symbol>
+  </svg>
+
+  <div class="app-frame">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="EV RouteWise home">
+        <span class="brand-mark"><svg><use href="#icon-bolt"/></svg></span>
+        <span><strong>EV RouteWise</strong><small>Charging route planner</small></span>
+      </a>
+      <div class="topbar-actions">
+        <span class="data-status"><i></i>{{ station_count }} station records loaded</span>
+        <a class="api-link" href="/docs" target="_blank" rel="noreferrer">API docs <svg><use href="#icon-external"/></svg></a>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="planner-pane" aria-label="Trip planner">
+        <div class="panel-scroll" id="panel-scroll">
+          <section class="intro" id="intro">
+            <span class="eyebrow">Plan with your real battery</span>
+            <h1>Find the right charging stop for your route.</h1>
+            <p>Tell us where you are going and what your EV can do. We will check road routes, usable range and compatible stations.</p>
+          </section>
+
+          <form id="trip-form" novalidate>
+            <section class="form-card route-card" aria-labelledby="route-heading">
+              <div class="card-heading">
+                <span class="step">1</span>
+                <div><h2 id="route-heading">Your journey</h2><p>Search a place or pick it on the map.</p></div>
+              </div>
+
+              <div class="route-fields">
+                <div class="route-rail" aria-hidden="true"><i></i><i></i></div>
+                <div class="place-control" data-field="origin">
+                  <label for="origin-input">Starting from</label>
+                  <div class="input-with-actions">
+                    <input id="origin-input" name="origin" type="search" autocomplete="off" placeholder="e.g. India Gate, New Delhi" required>
+                    <button class="field-action" id="use-location" type="button" title="Use my location" aria-label="Use my location">
+                      <svg><use href="#icon-location"/></svg>
+                    </button>
+                    <button class="field-action map-pick" data-target="origin" type="button" title="Pick start on map" aria-label="Pick start on map">
+                      <svg><use href="#icon-map-pin"/></svg>
+                    </button>
+                  </div>
+                  <div class="suggestions" id="origin-suggestions" role="listbox"></div>
+                  <small class="field-status" id="origin-status"></small>
+                </div>
+
+                <button class="swap-button" id="swap-places" type="button" aria-label="Swap start and destination">
+                  <svg><use href="#icon-swap"/></svg>
+                </button>
+
+                <div class="place-control" data-field="destination">
+                  <label for="destination-input">Going to</label>
+                  <div class="input-with-actions">
+                    <input id="destination-input" name="destination" type="search" autocomplete="off" placeholder="e.g. Taj Mahal, Agra" required>
+                    <button class="field-action map-pick" data-target="destination" type="button" title="Pick destination on map" aria-label="Pick destination on map">
+                      <svg><use href="#icon-map-pin"/></svg>
+                    </button>
+                  </div>
+                  <div class="suggestions" id="destination-suggestions" role="listbox"></div>
+                  <small class="field-status" id="destination-status"></small>
+                </div>
+              </div>
+            </section>
+
+            <section class="form-card" aria-labelledby="vehicle-heading">
+              <div class="card-heading">
+                <span class="step">2</span>
+                <div><h2 id="vehicle-heading">Your EV today</h2><p>Use the values shown in your car or vehicle app.</p></div>
+              </div>
+              <div class="field-grid three-fields">
+                <label class="field"><span>Battery size</span><div class="unit-input"><input id="battery-capacity" type="number" min="5" max="250" step="0.1" value="40.5" required><b>kWh</b></div></label>
+                <label class="field"><span>Battery now</span><div class="unit-input"><input id="current-soc" type="number" min="0" max="100" step="1" value="35" required><b>%</b></div></label>
+                <label class="field"><span>Keep in reserve</span><div class="unit-input"><input id="reserve-soc" type="number" min="0" max="50" step="1" value="15" required><b>%</b></div></label>
+              </div>
+              <label class="field full-field"><span>Typical energy use <small>Check your dashboard or EV specifications</small></span><div class="unit-input"><input id="consumption" type="number" min="60" max="500" step="1" value="150" required><b>Wh/km</b></div></label>
+            </section>
+
+            <section class="form-card" aria-labelledby="preference-heading">
+              <div class="card-heading">
+                <span class="step">3</span>
+                <div><h2 id="preference-heading">What matters on this trip?</h2><p>We use this to order suitable stops.</p></div>
+              </div>
+              <div class="priority-grid">
+                <label><input type="radio" name="mode" value="balanced" checked><span><b>Best overall</b><small>Good balance of time, detour and confidence</small></span></label>
+                <label><input type="radio" name="mode" value="fastest"><span><b>Faster charging</b><small>Prefer higher-power stations</small></span></label>
+                <label><input type="radio" name="mode" value="shortest_detour"><span><b>Least detour</b><small>Stay closest to your road route</small></span></label>
+                <label><input type="radio" name="mode" value="safest"><span><b>More battery margin</b><small>Prefer earlier, higher-confidence stops</small></span></label>
+              </div>
+
+              <details class="advanced-settings">
+                <summary>Connector and trip settings <svg><use href="#icon-chevron"/></svg></summary>
+                <div class="advanced-content">
+                  <fieldset class="connectors">
+                    <legend>Connectors supported by your EV</legend>
+                    <div class="connector-grid">
+                      <label><input type="checkbox" name="connector" value="ccs2" checked><span>CCS2</span></label>
+                      <label><input type="checkbox" name="connector" value="type2" checked><span>Type 2</span></label>
+                      <label><input type="checkbox" name="connector" value="chademo"><span>CHAdeMO</span></label>
+                      <label><input type="checkbox" name="connector" value="gbt"><span>GB/T</span></label>
+                      <label><input type="checkbox" name="connector" value="bharat_dc_001"><span>Bharat DC</span></label>
+                      <label><input type="checkbox" name="connector" value="bharat_ac_001"><span>Bharat AC</span></label>
+                    </div>
+                  </fieldset>
+                  <div class="field-grid two-fields">
+                    <label class="field"><span>Maximum total detour</span><div class="unit-input"><input id="max-detour" type="number" min="0.5" max="80" step="0.5" value="12"><b>km</b></div></label>
+                    <label class="field"><span>Driving conditions buffer</span><div class="unit-input"><input id="safety-buffer" type="number" min="0" max="40" step="1" value="10"><b>%</b></div></label>
+                  </div>
+                  <label class="toggle-row"><input id="allow-unverified" type="checkbox" checked><span class="toggle"></span><span><b>Show stations with missing connector details</b><small>They are clearly marked so you can verify them first.</small></span></label>
+                </div>
+              </details>
+            </section>
+
+            <div class="form-error" id="form-error" role="alert" hidden></div>
+            <button class="plan-button" id="plan-button" type="submit">
+              <span>Plan my charging route</span><svg><use href="#icon-arrow"/></svg>
+            </button>
+            <p class="form-note"><svg><use href="#icon-shield"/></svg> Battery estimates include your selected driving buffer and reserve.</p>
+          </form>
+
+          <section class="results" id="results" hidden aria-live="polite">
+            <div class="results-header">
+              <div><span class="eyebrow">Your trip plan</span><h2>Route recommendation</h2></div>
+              <button class="edit-button" id="edit-trip" type="button"><svg><use href="#icon-edit"/></svg> Edit trip</button>
+            </div>
+            <div id="decision-card"></div>
+            <div class="route-options" id="route-options"></div>
+            <div class="metric-grid" id="metrics"></div>
+            <div id="station-results"></div>
+            <div id="warnings"></div>
+            <details class="calculation-details">
+              <summary>How this plan was calculated <svg><use href="#icon-chevron"/></svg></summary>
+              <div id="calculation-content"></div>
+            </details>
+            <button class="secondary-button" id="plan-another" type="button">Plan another trip</button>
+          </section>
+
+          <footer class="panel-footer">
+            <p>Station records come from OpenStreetMap contributors under ODbL. Availability is not live—confirm before departure.</p>
+          </footer>
+        </div>
+      </aside>
+
+      <section class="map-pane" aria-label="Route map">
+        <div id="map"></div>
+        <div class="map-status" id="map-status"><span></span> Ready for your route</div>
+        <div class="map-pick-banner" id="map-pick-banner" hidden>
+          <span id="map-pick-text">Tap the map to choose a place</span>
+          <button id="cancel-map-pick" type="button">Cancel</button>
+        </div>
+        <div class="map-legend" id="map-legend" hidden>
+          <span><i class="line selected"></i> Selected route</span>
+          <span><i class="line alternate"></i> Other routes</span>
+          <span><i class="pin"></i> Charging stop</span>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>window.EV_ROUTEWISE = { stationCount: {{ station_count }}, version: {{ asset_version|tojson }} };</script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" defer></script>
+  <script src="{{ url_for('static', path='/app.js') }}?v={{ asset_version }}" defer></script>
+</body>
+</html>
+

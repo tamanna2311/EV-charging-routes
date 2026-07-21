@@ -1,0 +1,30 @@
+{
+  "origin": {
+    "latitude": 28.6129,
+    "longitude": 77.2295,
+    "label": "India Gate, New Delhi"
+  },
+  "destination": {
+    "latitude": 27.1767,
+    "longitude": 78.0081,
+    "label": "Taj Mahal, Agra"
+  },
+  "vehicle": {
+    "battery_capacity_kwh": 40.5,
+    "current_soc_percent": 35,
+    "reserve_soc_percent": 15,
+    "consumption_wh_per_km": 150,
+    "safety_buffer_percent": 10,
+    "connector_types": ["ccs2", "type2"],
+    "max_ac_kw": 7.2,
+    "max_dc_kw": 50
+  },
+  "preferences": {
+    "mode": "balanced",
+    "max_detour_km": 12,
+    "minimum_station_confidence": 40,
+    "allow_unverified_connectors": true,
+    "maximum_results": 5
+  }
+}
+
